@@ -1,5 +1,3 @@
-// core/dio_client.dart
-
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -66,7 +64,7 @@ class _JwtInterceptor extends Interceptor {
     }
 
     // Tránh gọi refresh nhiều lần đồng thời
-    if (_isRefreshing) return handler.next(err);
+    if (_isRefreshing) return handler.next(err); // Dừng thực thi và ném ngoại lệ
     _isRefreshing = true;
 
     try {

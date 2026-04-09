@@ -1,5 +1,3 @@
-// features/auth/auth_response.dart
-
 class AuthResponse {
   final String token;
   final String refreshToken;

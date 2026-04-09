@@ -1,5 +1,3 @@
-// features/auth/tb_auth_service.dart
-
 import 'package:dio/dio.dart';
 import 'auth_response.dart';
 

@@ -1,8 +1,3 @@
-// features/auth/auth_state.dart
-//
-// Không dùng freezed để tránh thêm dependency build_runner cho người mới.
-// Có thể chuyển sang freezed sau khi project ổn định.
-
 sealed class AuthState {
   const AuthState();
 }

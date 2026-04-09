@@ -1,10 +1,8 @@
-// core/app_constants.dart
-
 class AppConstants {
   AppConstants._();
 
   // Thay bằng URL ThingsBoard của bạn
-  static const String tbBaseUrl = 'https://demo.thingsboard.io';
+  static const String tbBaseUrl = 'https://eu.thingsboard.cloud';
 
   // Key lưu trong SecureStorage
   static const String keyJwtToken     = 'jwt_token';

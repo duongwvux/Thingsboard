@@ -1,5 +1,3 @@
-// features/auth/login_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,7 +16,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailCtrl    = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _serverCtrl   = TextEditingController(
-    text: 'https://demo.thingsboard.io',
+    text: 'https://eu.thingsboard.cloud',
   );
 
   bool _obscurePassword = true;
@@ -87,7 +85,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     _TbTextField(
                       controller: _serverCtrl,
                       label: 'Server URL',
-                      hint: 'https://demo.thingsboard.io',
+                      hint: 'https://eu.thingsboard.cloud',
                       prefixIcon: Icons.dns_outlined,
                       keyboardType: TextInputType.url,
                       enabled: !isLoading,
