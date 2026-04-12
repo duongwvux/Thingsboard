@@ -19,6 +19,7 @@ class MyApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'IoT Monitor',
+      debugShowCheckedModeBanner: false,
       routerConfig: router,
       theme: ThemeData(
         colorSchemeSeed: Colors.blue,

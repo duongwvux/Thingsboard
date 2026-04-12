@@ -5,6 +5,10 @@ import '../features/auth/auth_provider.dart';
 import '../features/auth/auth_state.dart';
 import '../features/auth/login_screen.dart';
 import '../features/devices/device_list_screen.dart'; 
+import '../features/home/home_screen.dart';
+import '../features/alarms/alarms_screen.dart';
+import '../features/more/more_screen.dart';
+import 'scaffold_with_nav_bar.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // routerProvider lắng nghe authProvider để tự redirect
@@ -35,10 +39,54 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/login',
         builder: (_, __) => const LoginScreen(),
       ),
-      GoRoute(
-        path: '/devices',
-        builder: (_, __) => const DeviceListScreen(),
-      ),
+      
+      // Shell: 4 tab với BottomNavigationBar
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return ScaffoldWithNavBar(navigationShell: navigationShell);
+        },
+        branches: [
+          // Tab 0 - Home
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home',
+                builder: (_,__) => const HomeScreen(),
+              ),
+            ],
+          ),
+
+          // Tab 1 — Alarms
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/alarms',
+                builder: (_, __) => const AlarmsScreen(),
+              ),
+            ],
+          ),
+ 
+          // Tab 2 — Devices
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/devices',
+                builder: (_, __) => const DeviceListScreen(),
+              ),
+            ],
+          ),
+ 
+          // Tab 3 — More
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/more',
+                builder: (_, __) => const MoreScreen(),
+              ),
+            ],
+          ),
+        ]
+      )
     ],
   );
 });
