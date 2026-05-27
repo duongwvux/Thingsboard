@@ -17,14 +17,45 @@ class TbDeviceService {
       final data = res.data as Map<String, dynamic>;
       final items = data['data'] as List<dynamic>? ?? [];
 
-      return items
+      final devices = items
           .map((e) => Device.fromJson(e as Map<String, dynamic>))
           .toList();
+ 
+      // Fetch active status cho tất cả device song song
+      final activeList = await Future.wait(
+        devices.map((d) => _fetchActive(d.id)),
+      );
+
+      return [
+        for (var i = 0; i < devices.length; i++)
+          Device(
+            id: devices[i].id,
+            name: devices[i].name,
+            type: devices[i].type,
+            active: activeList[i],
+            createdTime: devices[i].createdTime,
+          ),
+      ];
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       if (status == 401) throw Exception('Phiên đăng nhập hết hạn');
       if (status == 403) throw Exception('Không có quyền xem thiết bị');
       throw Exception('Không tải được danh sách thiết bị');
+    }
+  }
+
+  /// SERVER_SCOPE attributes chứa trường 'active' (bool)
+  Future<bool> _fetchActive(String deviceId) async {
+    try {
+      final res = await _dio.get(
+        '/api/plugins/telemetry/DEVICE/$deviceId/values/attributes/SERVER_SCOPE',
+        queryParameters: {'keys': 'active'},
+      );
+      final list = res.data as List<dynamic>;
+      if (list.isEmpty) return false;
+      return (list.first as Map<String, dynamic>)['value'] as bool? ?? false;
+    } catch (_) {
+      return false;
     }
   }
 }
