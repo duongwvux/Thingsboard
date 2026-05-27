@@ -8,6 +8,7 @@ import '../features/devices/device_list_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/alarms/alarms_screen.dart';
 import '../features/more/more_screen.dart';
+import '../features/dashboard/my_dashboard_screen.dart';
 import 'scaffold_with_nav_bar.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -51,7 +52,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/home',
-                builder: (_,__) => const HomeScreen(),
+                builder: (_,__) => const MyDashboardScreen(),
               ),
             ],
           ),
