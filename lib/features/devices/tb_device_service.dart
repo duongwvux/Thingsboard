@@ -1,3 +1,6 @@
+import 'dart:math';
+import 'package:flutter/foundation.dart';
+
 import 'package:dio/dio.dart';
 import 'device_model.dart';
 
@@ -56,6 +59,35 @@ class TbDeviceService {
       return (list.first as Map<String, dynamic>)['value'] as bool? ?? false;
     } catch (_) {
       return false;
+    }
+  }
+
+  Future<String?> createDevice(String name) async {
+    try {
+      final res = await _dio.post(
+        '/api/device',
+        data: {'name': name, 'type': 'default'},
+      );
+      return (res.data['id'] as Map<String, dynamic>)['id'] as String?;
+    } on DioException {
+      return null;
+    }
+  }
+
+  Future<String?> getDeviceToken(String deviceId) async {
+    try {
+      debugPrint('>>> calling: /api/device/$deviceId/credentials');
+      final res = await _dio.get('/api/device/$deviceId/credentials');
+      debugPrint('>>> status: ${res.statusCode}');
+      debugPrint('>>> data: ${res.data}');
+      return res.data['credentialsId'] as String?;
+    } on DioException catch (e) {
+      debugPrint('>>> DioException: ${e.response?.statusCode}');
+      debugPrint('>>> response body: ${e.response?.data}');
+      return null;
+    } catch (e) {
+      debugPrint('>>> unknown error: $e');
+      return null;
     }
   }
 }

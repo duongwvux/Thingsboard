@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../auth/auth_provider.dart';
 import 'devices_provider.dart';
 import 'device_model.dart';
+import 'add_device_screen.dart';
 
 // ---------------------------------------------------------------------------
 // DeviceListScreen
@@ -55,6 +56,15 @@ class DeviceListScreen extends ConsumerWidget {
             ),
           );
         },
+      ),
+
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AddDeviceScreen()),
+        ),
+        tooltip: 'Thêm thiết bị',
+        child: const Icon(Icons.add),
       ),
 
       // Đếm số thiết bị online ở bottom bar
