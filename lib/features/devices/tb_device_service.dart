@@ -62,11 +62,11 @@ class TbDeviceService {
     }
   }
 
-  Future<String?> createDevice(String name) async {
+  Future<String?> createDevice(String name, {String type = 'd'}) async {
     try {
       final res = await _dio.post(
         '/api/device',
-        data: {'name': name, 'type': 'default'},
+        data: {'name': name, 'type': type},
       );
       return (res.data['id'] as Map<String, dynamic>)['id'] as String?;
     } on DioException {

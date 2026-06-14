@@ -2,13 +2,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:thingsboard_app/core/app_constants.dart';
 import 'devices_provider.dart';
 import 'tb_device_service.dart';
 
 // ─── Chế độ thiết bị ─────────────────────────
 enum DeviceMode { real, wokwi }
 
-enum AddDeviceStatus { idle, creatingDevice, sendingToEsp, success, error }
+enum AddDeviceStatus { idle, creatingDevice, sendingToRelay, sendingToEsp, success, error }
 
 class AddDeviceState {
   final AddDeviceStatus status;
@@ -93,20 +94,65 @@ class AddDeviceNotifier extends Notifier<AddDeviceState> {
 
     // Bước 3: phân nhánh theo chế độ
     if (state.mode == DeviceMode.wokwi) {
-      return _handleWokwi(token);
+      return _handleWokwi(deviceName, token);
     } else {
       return _handleRealEsp32(token, wifiSsid, wifiPass);
     }
   }
 
   // ─── Wokwi: chỉ hiện token để user copy ──────
-  bool _handleWokwi(String token) {
+  Future<bool> _handleWokwi(String deviceName, String token) async {
     state = state.copyWith(
-      status: AddDeviceStatus.success,
-      message: 'Thiết bị đã tạo! Copy token dán vào Wokwi.',
+      status: AddDeviceStatus.sendingToRelay,
+      message: 'Đang gửi token lên relay server...',
       token: token,
     );
-    return true;
+    final deviceId = _toDeviceId(deviceName);
+
+    try {
+      final res = await http
+                .post(Uri.parse('${AppConstants.relayServerUrl}/provision'),
+                  headers: {'Content-Type': 'application/json'},
+                  body: jsonEncode({
+                    'device_id': deviceId,
+                    'token':     token,
+                  }),
+                ).timeout(const Duration(seconds: 8));
+      
+      // Thành công
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        debugPrint('[Relay] ✅ Token đã gửi cho device_id=$deviceId');
+        state = state.copyWith(
+          status:  AddDeviceStatus.success,
+          message: 'Token đã gửi lên relay!\n'
+              'ESP32 sẽ tự lấy và kết nối ThingsBoard.',
+          token: token,   // vẫn giữ token để user copy nếu cần
+        );
+        return true;
+      }
+
+      // Relay trả lỗi HTTP
+      debugPrint('[Relay] ❌ HTTP ${res.statusCode}: ${res.body}');
+      state = state.copyWith(
+        status:  AddDeviceStatus.error,
+        message: 'Relay server lỗi (HTTP ${res.statusCode}).\n'
+            'Kiểm tra relay_server.py đang chạy chưa.',
+        token: token,   // vẫn hiện token để copy thủ công
+      );
+      return false;
+    } on Exception catch (e) {
+      // Không kết nối được relay
+      debugPrint('[Relay] ❌ Exception: $e');
+      state = state.copyWith(
+        status:  AddDeviceStatus.error,
+        message: 'Không kết nối được relay server.\n'
+            'Kiểm tra:\n'
+            '• relay_server.py đang chạy?\n'
+            '• IP trong AppConstants.relayServerUrl đúng chưa?',
+        token: token,   // fallback: vẫn hiện token để copy thủ công
+      );
+      return false;
+    }
   }
 
   // ─── ESP32 thật: gửi config qua WiFi AP ──────
@@ -152,6 +198,9 @@ class AddDeviceNotifier extends Notifier<AddDeviceState> {
       return false;
     }
   }
+
+  String _toDeviceId(String name) =>
+        name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '-');
 }
 
 final addDeviceProvider =

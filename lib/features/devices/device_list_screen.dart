@@ -5,6 +5,7 @@ import '../auth/auth_provider.dart';
 import 'devices_provider.dart';
 import 'device_model.dart';
 import 'add_device_screen.dart';
+import 'led_control_card.dart';
 
 // ---------------------------------------------------------------------------
 // DeviceListScreen
@@ -49,10 +50,16 @@ class DeviceListScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               itemCount: devices.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, i) => DeviceCard(
-                device: devices[i],
-                onTap: () => context.push('/devices/${devices[i].id}'),
-              ),
+              itemBuilder: (context, i) {
+                final device = devices[i];
+                if (device.type.toLowerCase() == 'led') {
+                  return LedControlCard(device: device);
+                }
+                return DeviceCard(
+                  device: devices[i],
+                  onTap: () => context.push('/devices/${devices[i].id}'),
+                );
+              },
             ),
           );
         },

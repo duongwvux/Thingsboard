@@ -6,6 +6,7 @@ import 'devices_provider.dart';
 
 class AddDeviceScreen extends ConsumerStatefulWidget {
   const AddDeviceScreen({super.key});
+
   @override
   ConsumerState<AddDeviceScreen> createState() => _AddDeviceScreenState();
 }
@@ -37,8 +38,9 @@ class _AddDeviceScreenState extends ConsumerState<AddDeviceScreen> {
 
     if (ok && mounted) {
       ref.read(devicesProvider.notifier).refresh();
-      // Wokwi: ở lại màn hình để user copy token
+
       // ESP32 thật: đóng màn hình sau 2 giây
+      // Wokwi: ở lại để user thấy kết quả (token + trạng thái relay)
       final state = ref.read(addDeviceProvider);
       if (state.mode == DeviceMode.real) {
         await Future.delayed(const Duration(seconds: 2));
@@ -51,6 +53,7 @@ class _AddDeviceScreenState extends ConsumerState<AddDeviceScreen> {
   Widget build(BuildContext context) {
     final state     = ref.watch(addDeviceProvider);
     final isLoading = state.status == AddDeviceStatus.creatingDevice ||
+                      state.status == AddDeviceStatus.sendingToRelay ||
                       state.status == AddDeviceStatus.sendingToEsp;
     final isWokwi   = state.mode == DeviceMode.wokwi;
 
@@ -64,7 +67,7 @@ class _AddDeviceScreenState extends ConsumerState<AddDeviceScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
 
-              // ── Toggle chế độ ───────────────────────────
+              // ── Toggle chế độ ────────────────────────────────────────────
               _ModeToggle(
                 selected: state.mode,
                 onChanged: isLoading
@@ -73,37 +76,51 @@ class _AddDeviceScreenState extends ConsumerState<AddDeviceScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── Hướng dẫn tuỳ theo chế độ ───────────────
+              // ── Banner hướng dẫn ──────────────────────────────────────────
               _InfoBanner(isWokwi: isWokwi),
               const SizedBox(height: 20),
 
-              // ── Tên thiết bị ─────────────────────────────
+              // ── Tên thiết bị ──────────────────────────────────────────────
               TextFormField(
                 controller: _nameCtrl,
                 enabled: !isLoading,
                 decoration: const InputDecoration(
                   labelText: 'Tên thiết bị',
+                  hintText: 'Phải khớp với DEVICE_ID trong config.h',
                   prefixIcon: Icon(Icons.device_hub_outlined),
                   border: OutlineInputBorder(),
                 ),
                 validator: (v) =>
                     v!.trim().isEmpty ? 'Nhập tên thiết bị' : null,
               ),
+
+              // ── Hint device_id sẽ được tạo ra ────────────────────────────
+              if (isWokwi && _nameCtrl.text.trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 4),
+                  child: Text(
+                    'device_id relay: '
+                    '${_nameCtrl.text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '-')}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
               const SizedBox(height: 14),
 
-              // ── WiFi fields: chỉ hiện khi ESP32 thật ─────
+              // ── WiFi fields: chỉ hiện khi ESP32 thật ─────────────────────
               if (!isWokwi) ...[
                 TextFormField(
                   controller: _ssidCtrl,
                   enabled: !isLoading,
                   decoration: const InputDecoration(
                     labelText: 'WiFi SSID',
-                    hintText: 'Tên mạng WiFi nhà bạn',
                     prefixIcon: Icon(Icons.wifi),
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) =>
-                      v!.trim().isEmpty ? 'Nhập SSID' : null,
+                  validator: (v) => v!.trim().isEmpty ? 'Nhập SSID' : null,
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
@@ -126,21 +143,28 @@ class _AddDeviceScreenState extends ConsumerState<AddDeviceScreen> {
                 const SizedBox(height: 14),
               ],
 
-              // ── Nút thêm ─────────────────────────────────
+              // ── Nút thêm ──────────────────────────────────────────────────
               FilledButton.icon(
                 onPressed: isLoading ? null : _submit,
                 icon: isLoading
                     ? const SizedBox(
                         width: 16, height: 16,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
+                          strokeWidth: 2, color: Colors.white),
+                      )
                     : const Icon(Icons.add),
-                label: Text(isLoading ? state.message : 'Thêm thiết bị'),
+                label: Text(isLoading ? _loadingLabel(state.status) : 'Thêm thiết bị'),
                 style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(48)),
               ),
 
-              // ── Kết quả ──────────────────────────────────
+              // ── Stepper tiến trình (Wokwi) ────────────────────────────────
+              if (isWokwi && state.status != AddDeviceStatus.idle) ...[
+                const SizedBox(height: 20),
+                _ProgressStepper(status: state.status),
+              ],
+
+              // ── Kết quả lỗi ───────────────────────────────────────────────
               if (state.status == AddDeviceStatus.error) ...[
                 const SizedBox(height: 16),
                 _StatusCard(
@@ -148,16 +172,33 @@ class _AddDeviceScreenState extends ConsumerState<AddDeviceScreen> {
                   message: state.message,
                   isSuccess: false,
                 ),
+                // Nếu đã có token dù lỗi relay → vẫn hiện để copy thủ công
+                if (state.token.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Token vẫn hợp lệ — copy thủ công nếu relay lỗi:',
+                    style: TextStyle(fontSize: 12, color: Colors.orange),
+                  ),
+                  const SizedBox(height: 8),
+                  _TokenCard(token: state.token, isManual: true),
+                ],
               ],
 
-              // ── Wokwi: hiện token để copy ─────────────────
+              // ── Thành công Wokwi ──────────────────────────────────────────
               if (state.status == AddDeviceStatus.success &&
-                  state.token.isNotEmpty) ...[
+                  state.token.isNotEmpty &&
+                  isWokwi) ...[
                 const SizedBox(height: 16),
-                _TokenCard(token: state.token),
+                _StatusCard(
+                  icon: Icons.check_circle_outline,
+                  message: state.message,
+                  isSuccess: true,
+                ),
+                const SizedBox(height: 12),
+                _TokenCard(token: state.token, isManual: false),
               ],
 
-              // ── ESP32 thật: thông báo thành công ──────────
+              // ── Thành công ESP32 thật ──────────────────────────────────────
               if (state.status == AddDeviceStatus.success &&
                   state.token.isEmpty) ...[
                 const SizedBox(height: 16),
@@ -167,22 +208,150 @@ class _AddDeviceScreenState extends ConsumerState<AddDeviceScreen> {
                   isSuccess: true,
                 ),
               ],
-
             ],
           ),
         ),
       ),
     );
   }
+
+  String _loadingLabel(AddDeviceStatus s) => switch (s) {
+    AddDeviceStatus.creatingDevice => 'Đang tạo thiết bị...',
+    AddDeviceStatus.sendingToRelay => 'Đang gửi lên relay...',
+    AddDeviceStatus.sendingToEsp   => 'Đang gửi cho ESP32...',
+    _                              => 'Đang xử lý...',
+  };
 }
 
-// ─────────────────────────────────────────────
-// Widget: Toggle chế độ
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// _ProgressStepper — hiện 3 bước cho Wokwi flow
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ProgressStepper extends StatelessWidget {
+  final AddDeviceStatus status;
+  const _ProgressStepper({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = [
+      (
+        label: 'Tạo thiết bị',
+        icon: Icons.cloud_upload_outlined,
+        done: _isDone(AddDeviceStatus.creatingDevice),
+        active: status == AddDeviceStatus.creatingDevice,
+      ),
+      (
+        label: 'Gửi token lên relay',
+        icon: Icons.send_outlined,
+        done: _isDone(AddDeviceStatus.sendingToRelay),
+        active: status == AddDeviceStatus.sendingToRelay,
+      ),
+      (
+        label: 'ESP32 kết nối',
+        icon: Icons.sensors_outlined,
+        done: status == AddDeviceStatus.success,
+        active: false,
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: steps.asMap().entries.map((e) {
+          final i    = e.key;
+          final step = e.value;
+          return Row(
+            children: [
+              // ── Icon bước ─────────────────────────────────────────
+              Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: step.done
+                      ? Colors.green
+                      : step.active
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.outline
+                              .withOpacity(0.2),
+                ),
+                child: step.active
+                    ? const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                      )
+                    : Icon(
+                        step.done ? Icons.check : step.icon,
+                        size: 16,
+                        color: step.done || step.active
+                            ? Colors.white
+                            : Theme.of(context).colorScheme.outline,
+                      ),
+              ),
+              const SizedBox(width: 12),
+
+              // ── Label ──────────────────────────────────────────────
+              Text(
+                step.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: step.active || step.done
+                      ? FontWeight.w500
+                      : FontWeight.normal,
+                  color: step.done
+                      ? Colors.green
+                      : step.active
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+
+              // ── Gạch nối xuống bước tiếp theo ─────────────────────
+              if (i < steps.length - 1)
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Icon(
+                      Icons.arrow_downward,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.outline
+                          .withOpacity(0.4),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // Một bước được coi là "done" khi status đã vượt qua nó
+  bool _isDone(AddDeviceStatus step) {
+    const order = [
+      AddDeviceStatus.creatingDevice,
+      AddDeviceStatus.sendingToRelay,
+      AddDeviceStatus.success,
+    ];
+    final stepIdx   = order.indexOf(step);
+    final statusIdx = order.indexOf(status);
+    return statusIdx > stepIdx ||
+        status == AddDeviceStatus.success ||
+        (status == AddDeviceStatus.error && statusIdx > stepIdx);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Các widget con (giữ nguyên + bổ sung isManual cho _TokenCard)
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _ModeToggle extends StatelessWidget {
   final DeviceMode selected;
   final ValueChanged<DeviceMode>? onChanged;
-
   const _ModeToggle({required this.selected, this.onChanged});
 
   @override
@@ -201,16 +370,12 @@ class _ModeToggle extends StatelessWidget {
         ),
       ],
       selected: {selected},
-      onSelectionChanged: onChanged == null
-          ? null
-          : (s) => onChanged!(s.first),
+      onSelectionChanged:
+          onChanged == null ? null : (s) => onChanged!(s.first),
     );
   }
 }
 
-// ─────────────────────────────────────────────
-// Widget: Banner hướng dẫn
-// ─────────────────────────────────────────────
 class _InfoBanner extends StatelessWidget {
   final bool isWokwi;
   const _InfoBanner({required this.isWokwi});
@@ -218,10 +383,11 @@ class _InfoBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = isWokwi
-        ? 'App sẽ tạo thiết bị và hiện token.\nCopy token dán vào code Wokwi là xong.'
-        : 'Vào Cài đặt WiFi → kết nối vào mạng "ESP32-Setup-XXXX"\nrồi quay lại đây điền form.';
-
-    final icon = isWokwi ? Icons.laptop_outlined : Icons.wifi_outlined;
+        ? 'App tạo device → lấy token → POST lên relay server.\n'
+          'ESP32 Wokwi sẽ tự poll và kết nối ThingsBoard.'
+        : 'Vào Cài đặt WiFi → kết nối "ESP32-Setup-XXXX"\n'
+          'rồi quay lại đây điền form.';
+    final icon = isWokwi ? Icons.sync_outlined : Icons.wifi_outlined;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -232,8 +398,7 @@ class _InfoBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon,
-              size: 18,
+          Icon(icon, size: 18,
               color: Theme.of(context).colorScheme.onSecondaryContainer),
           const SizedBox(width: 10),
           Expanded(
@@ -251,12 +416,10 @@ class _InfoBanner extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// Widget: Hiện token để copy (Wokwi)
-// ─────────────────────────────────────────────
 class _TokenCard extends StatelessWidget {
   final String token;
-  const _TokenCard({required this.token});
+  final bool isManual; // true = relay lỗi, cần copy thủ công
+  const _TokenCard({required this.token, required this.isManual});
 
   @override
   Widget build(BuildContext context) {
@@ -273,16 +436,16 @@ class _TokenCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            Icon(Icons.key_outlined,
-                size: 16,
+            Icon(Icons.key_outlined, size: 16,
                 color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 6),
-            Text('Token — dán vào Wokwi',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.primary,
-                )),
+            Text(
+              isManual ? 'Token — dán thủ công vào config.h' : 'Token (tham khảo)',
+              style: TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
           ]),
           const SizedBox(height: 10),
           Container(
@@ -292,10 +455,9 @@ class _TokenCard extends StatelessWidget {
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Text(
+            child: SelectableText(
               token,
-              style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 13),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
             ),
           ),
           const SizedBox(height: 10),
@@ -308,7 +470,7 @@ class _TokenCard extends StatelessWidget {
                 Clipboard.setData(ClipboardData(text: token));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Đã copy! Dán vào WOKWI_TOKEN trong code.'),
+                    content: Text('Đã copy! Dán vào TB_TOKEN trong config.h'),
                     duration: Duration(seconds: 3),
                   ),
                 );
@@ -321,9 +483,6 @@ class _TokenCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// Widget: Status thành công / lỗi
-// ─────────────────────────────────────────────
 class _StatusCard extends StatelessWidget {
   final IconData icon;
   final String message;
@@ -345,15 +504,19 @@ class _StatusCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: bg, borderRadius: BorderRadius.circular(8)),
-      child: Row(children: [
-        Icon(icon, size: 16, color: fg),
-        const SizedBox(width: 8),
-        Expanded(
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: fg),
+          const SizedBox(width: 8),
+          Expanded(
             child: Text(message,
-                style: TextStyle(fontSize: 13, color: fg))),
-      ]),
+                style: TextStyle(fontSize: 13, color: fg)),
+          ),
+        ],
+      ),
     );
   }
 }
