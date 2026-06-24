@@ -12,6 +12,7 @@ class DashboardTileConfig {
   final String telemetryKey;
   final String unit;
   final Color sparklineColor;
+  final bool isRpcControl;
 
   /// Giới hạn trục Y — nếu null thì auto từ data
   final double? yMin;
@@ -27,6 +28,7 @@ class DashboardTileConfig {
     this.sparklineColor = const Color(0xFF26C6DA),
     this.yMin,
     this.yMax,
+    this.isRpcControl = false,
   });
 
   // ── Màu preset ────────────────────────────────────────────────────────────

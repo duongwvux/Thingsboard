@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:thingsboard_app/features/devices/tb_rpc_service.dart';
 import '../auth/auth_provider.dart';
 import 'devices_provider.dart';
 import 'device_model.dart';
@@ -17,6 +18,7 @@ class DeviceListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final devicesAsync = ref.watch(devicesProvider);
+    final rpcService = ref.watch(tbRpcServiceProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -53,7 +55,10 @@ class DeviceListScreen extends ConsumerWidget {
               itemBuilder: (context, i) {
                 final device = devices[i];
                 if (device.type.toLowerCase() == 'led') {
-                  return LedControlCard(device: device);
+                  return LedControlCard(
+                    deviceId: device.id,
+                    rpcService: rpcService,
+                  );
                 }
                 return DeviceCard(
                   device: devices[i],

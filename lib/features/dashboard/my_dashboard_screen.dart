@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../devices/devices_provider.dart';
 import '../devices/device_model.dart';
+import '../devices/tb_rpc_service.dart';
 import 'dashboard_tile_config.dart';
 import 'dashboard_provider.dart';
 import 'telemetry_model.dart';
@@ -152,13 +153,13 @@ class _TileGrid extends ConsumerWidget {
 // Sensor card
 // ===========================================================================
 
-class SensorCard extends StatelessWidget {
+class SensorCard extends ConsumerWidget {
   final TileData data;
   final VoidCallback? onLongPress;
   const SensorCard({super.key, required this.data, this.onLongPress});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isOnline = data.isOnline && data.latestValue != null;
     final color    = data.config.sparklineColor;
 
@@ -211,38 +212,65 @@ class SensorCard extends StatelessWidget {
               ),
             ),
 
-            // ── Value ────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 2, 10, 0),
-              child: isOnline
-                  ? _ValueRow(
-                      value: data.formattedValue,
-                      unit: data.config.unit,
-                      color: color)
-                  : const _OfflineIndicator(),
-            ),
-
-            const SizedBox(height: 3),
-
-            // ── Chart ─────────────────────────────────────────────────
-            if (isOnline && data.sparklineValues.length >= 2)
+            if (data.config.isRpcControl)
+              // NẾU LÀ NÚT BẤM THÌ HIỂN THỊ SWITCH NẰM GIỮA
               Expanded(
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(14)),
-                  child: CustomPaint(
-                    size: const Size(double.infinity, double.infinity),
-                    painter: ChartPainter(
-                      values: data.sparklineValues,
-                      color:  color,
-                      yMin:   data.config.yMin,
-                      yMax:   data.config.yMax,
-                    ),
+                child: Center(
+                  child: Switch(
+                    // Kiểm tra giá trị từ server trả về là 'ON', true, hoặc 1
+                    value: data.latestValue == 'ON' || data.latestValue == true || data.latestValue == 'true' || data.latestValue == 1,
+                    activeColor: color,
+                    onChanged: (newValue) async {
+                      // Đọc provider RPC và gửi lệnh
+                      final rpcService = ref.read(tbRpcServiceProvider);
+                      bool success = await rpcService.sendLedRpcRequest(data.config.deviceId, newValue);
+                      
+                      if (success) {
+                        // Tải lại dữ liệu của chính Tile này ngay lập tức để cập nhật giao diện
+                        ref.invalidate(tileDataProvider(data.config.id));
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Lỗi gửi lệnh điều khiển!')),
+                        );
+                      }
+                    },
                   ),
                 ),
               )
-            else
-              const SizedBox(height: 8),
+            else ...[
+              // ── Value ────────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 2, 10, 0),
+                child: isOnline
+                    ? _ValueRow(
+                        value: data.formattedValue,
+                        unit: data.config.unit,
+                        color: color)
+                    : const _OfflineIndicator(),
+              ),
+
+              const SizedBox(height: 3),
+
+              // ── Chart ─────────────────────────────────────────────────
+              if (isOnline && data.sparklineValues.length >= 2)
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(14)),
+                    child: CustomPaint(
+                      size: const Size(double.infinity, double.infinity),
+                      painter: ChartPainter(
+                        values: data.sparklineValues,
+                        color:  color,
+                        yMin:   data.config.yMin,
+                        yMax:   data.config.yMax,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(height: 8),
+            ],
           ],
         ),
       ),
@@ -613,6 +641,7 @@ class _AddTileSheetState extends ConsumerState<_AddTileSheet> {
   Device? _selectedDevice;
   String? _selectedKey;
   Color   _selectedColor = DashboardTileConfig.presetColors.first;
+  bool    _isRpcControl  = false;
 
   final _labelCtrl = TextEditingController();
   final _unitCtrl  = TextEditingController();
@@ -759,6 +788,21 @@ class _AddTileSheetState extends ConsumerState<_AddTileSheet> {
             ),
             const SizedBox(height: 24),
 
+            CheckboxListTile(
+              title: const Text(
+                'Là nút điều khiển Bật/Tắt (Gửi lệnh RPC)',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+              value: _isRpcControl,
+              activeColor: _selectedColor,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              onChanged: (val) {
+                setState(() => _isRpcControl = val ?? false);
+              },
+            ),
+            const SizedBox(height: 24),
+
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -794,6 +838,7 @@ class _AddTileSheetState extends ConsumerState<_AddTileSheet> {
       sparklineColor: _selectedColor,
       yMin: double.tryParse(_yMinCtrl.text.trim()),
       yMax: double.tryParse(_yMaxCtrl.text.trim()),
+      isRpcControl:  _isRpcControl,
     );
     ref.read(dashboardTilesProvider.notifier).add(tile);
     Navigator.pop(context);
