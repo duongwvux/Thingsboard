@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import 'package:dio/dio.dart';
@@ -23,7 +22,7 @@ class TbDeviceService {
       final devices = items
           .map((e) => Device.fromJson(e as Map<String, dynamic>))
           .toList();
- 
+
       // Fetch active status cho tất cả device song song
       final activeList = await Future.wait(
         devices.map((d) => _fetchActive(d.id)),

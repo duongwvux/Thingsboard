@@ -2,20 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../features/home/home_screen.dart';
-import '../features/alarms/alarms_screen.dart';
-import '../features/devices/device_list_screen.dart';
-import '../features/more/more_screen.dart';
 
 /// Shell widget bao quanh 4 tab.
 /// go_router dùng StatefulShellRoute để giữ state mỗi tab riêng biệt.
 class ScaffoldWithNavBar extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
-  const ScaffoldWithNavBar({
-    super.key,
-    required this.navigationShell,
-  });
+  const ScaffoldWithNavBar({super.key, required this.navigationShell});
 
   @override
   Widget build(BuildContext context) {

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../shared/dialogs/confirm_logout_dialog.dart';
 import '../auth/auth_provider.dart';
 
 class MoreScreen extends ConsumerWidget {
@@ -35,10 +36,11 @@ class MoreScreen extends ConsumerWidget {
 
           // Đăng xuất
           ListTile(
-            leading: Icon(Icons.logout,
-                color: theme.colorScheme.error),
-            title: Text('Đăng xuất',
-                style: TextStyle(color: theme.colorScheme.error)),
+            leading: Icon(Icons.logout, color: theme.colorScheme.error),
+            title: Text(
+              'Đăng xuất',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
             onTap: () => _confirmLogout(context, ref),
           ),
         ],
@@ -47,24 +49,7 @@ class MoreScreen extends ConsumerWidget {
   }
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Đăng xuất'),
-        content: const Text('Bạn có chắc muốn đăng xuất không?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Huỷ'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Đăng xuất'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
+    if (await showLogoutConfirmation(context)) {
       await ref.read(authProvider.notifier).logout();
     }
   }

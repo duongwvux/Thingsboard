@@ -6,10 +6,10 @@ class LedControlCard extends StatefulWidget {
   final TbRpcService rpcService;
 
   const LedControlCard({
-    Key? key,
+    super.key,
     required this.deviceId,
     required this.rpcService,
-  }) : super(key: key);
+  });
 
   @override
   State<LedControlCard> createState() => _LedControlCardState();
@@ -17,7 +17,8 @@ class LedControlCard extends StatefulWidget {
 
 class _LedControlCardState extends State<LedControlCard> {
   bool _isLedOn = false;
-  bool _isLoading = true; // Thay đổi: Mặc định bằng true để xoay loading lúc mới mở thẻ
+  bool _isLoading =
+      true; // Thay đổi: Mặc định bằng true để xoay loading lúc mới mở thẻ
 
   @override
   void initState() {
@@ -27,46 +28,46 @@ class _LedControlCardState extends State<LedControlCard> {
 
   // Hàm gọi Service để check trạng thái thực tế
   Future<void> _checkInitialState() async {
-    bool? currentState = await widget.rpcService.getLatestLedState(widget.deviceId);
-    
+    bool? currentState = await widget.rpcService.getLatestLedState(
+      widget.deviceId,
+    );
+
     // Kiểm tra mounted để tránh lỗi giao diện nếu người dùng đóng BottomSheet quá nhanh
     if (mounted) {
       setState(() {
         _isLedOn = currentState ?? false; // Đồng bộ UI với trạng thái thật
-        _isLoading = false;               // Tắt vòng xoay loading
+        _isLoading = false; // Tắt vòng xoay loading
       });
     }
   }
+
   void _handleToggle(bool newValue) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Thực hiện gọi API RPC thông qua Service
+    bool isSuccess = await widget.rpcService.sendLedRpcRequest(
+      widget.deviceId,
+      newValue,
+    );
+
+    if (mounted) {
       setState(() {
-        _isLoading = true;
+        _isLoading = false;
+        if (isSuccess) {
+          _isLedOn = newValue; // Cập nhật giao diện nếu thành công
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ Không thể kết nối hoặc gửi lệnh tới thiết bị!'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
       });
-
-      // Thực hiện gọi API RPC thông qua Service
-      bool isSuccess = await widget.rpcService.sendLedRpcRequest(
-        widget.deviceId,
-        newValue,
-      );
-
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          if (isSuccess) {
-            _isLedOn = newValue; // Cập nhật giao diện nếu thành công
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('❌ Không thể kết nối hoặc gửi lệnh tới thiết bị!'),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          }
-        });
-      }
     }
-  
-  
-    
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +108,7 @@ class _LedControlCardState extends State<LedControlCard> {
                     onChanged: (bool newValue) {
                       _handleToggle(newValue);
                     },
-                    activeColor: Colors.green,
+                    activeThumbColor: Colors.green,
                   ),
           ],
         ),

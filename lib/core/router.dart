@@ -4,8 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/auth_provider.dart';
 import '../features/auth/auth_state.dart';
 import '../features/auth/login_screen.dart';
-import '../features/devices/device_list_screen.dart'; 
-import '../features/home/home_screen.dart';
+import '../features/devices/device_list_screen.dart';
 import '../features/alarms/alarms_screen.dart';
 import '../features/more/more_screen.dart';
 import '../features/dashboard/my_dashboard_screen.dart';
@@ -13,8 +12,6 @@ import 'scaffold_with_nav_bar.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // routerProvider lắng nghe authProvider để tự redirect
-  final authNotifier = ref.watch(authProvider.notifier);
-
   return GoRouter(
     initialLocation: '/login',
     refreshListenable: _AuthStateListenable(ref),
@@ -31,16 +28,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnLogin = state.matchedLocation == '/login';
 
       if (!isAuthenticated && !isOnLogin) return '/login';
-      if (isAuthenticated && isOnLogin)   return '/devices';
+      if (isAuthenticated && isOnLogin) return '/devices';
       return null;
     },
 
     routes: [
-      GoRoute(
-        path: '/login',
-        builder: (_, __) => const LoginScreen(),
-      ),
-      
+      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+
       // Shell: 4 tab với BottomNavigationBar
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -52,7 +46,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/home',
-                builder: (_,__) => const MyDashboardScreen(),
+                builder: (_, _) => const MyDashboardScreen(),
               ),
             ],
           ),
@@ -60,34 +54,28 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Tab 1 — Alarms
           StatefulShellBranch(
             routes: [
-              GoRoute(
-                path: '/alarms',
-                builder: (_, __) => const AlarmsScreen(),
-              ),
+              GoRoute(path: '/alarms', builder: (_, _) => const AlarmsScreen()),
             ],
           ),
- 
+
           // Tab 2 — Devices
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/devices',
-                builder: (_, __) => const DeviceListScreen(),
+                builder: (_, _) => const DeviceListScreen(),
               ),
             ],
           ),
- 
+
           // Tab 3 — More
           StatefulShellBranch(
             routes: [
-              GoRoute(
-                path: '/more',
-                builder: (_, __) => const MoreScreen(),
-              ),
+              GoRoute(path: '/more', builder: (_, _) => const MoreScreen()),
             ],
           ),
-        ]
-      )
+        ],
+      ),
     ],
   );
 });
@@ -95,6 +83,6 @@ final routerProvider = Provider<GoRouter>((ref) {
 // Cho GoRouter biết khi nào cần chạy lại redirect
 class _AuthStateListenable extends ChangeNotifier {
   _AuthStateListenable(Ref ref) {
-    ref.listen(authProvider, (_, __) => notifyListeners());
+    ref.listen(authProvider, (_, _) => notifyListeners());
   }
 }

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/app_constants.dart';
+import '../../shared/utils/form_validators.dart';
+import '../../shared/widgets/app_status_banner.dart';
+import '../../shared/widgets/app_text_form_field.dart';
 import 'auth_provider.dart';
 import 'auth_state.dart';
 
@@ -12,15 +16,13 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _formKey      = GlobalKey<FormState>();
-  final _emailCtrl    = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _serverCtrl   = TextEditingController(
-    text: 'https://eu.thingsboard.cloud',
-  );
+  final _serverCtrl = TextEditingController(text: AppConstants.tbBaseUrl);
 
   bool _obscurePassword = true;
-  bool _hasSubmitted    = false; // chỉ validate sau lần nhấn đầu tiên
+  bool _hasSubmitted = false; // chỉ validate sau lần nhấn đầu tiên
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -77,24 +79,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                     // ── Error banner ──────────────────────────────────────
                     if (errorMessage != null) ...[
-                      _ErrorBanner(message: errorMessage),
+                      AppStatusBanner(
+                        message: errorMessage,
+                        icon: Icons.error_outline,
+                        tone: AppStatusTone.error,
+                      ),
                       const SizedBox(height: 20),
                     ],
 
                     // ── Server URL ────────────────────────────────────────
-                    _TbTextField(
+                    AppTextFormField(
                       controller: _serverCtrl,
                       label: 'Server URL',
                       hint: 'https://eu.thingsboard.cloud',
                       prefixIcon: Icons.dns_outlined,
                       keyboardType: TextInputType.url,
                       enabled: !isLoading,
-                      validator: _validateUrl,
+                      validator: FormValidators.serverUrl,
                     ),
                     const SizedBox(height: 14),
 
                     // ── Email ─────────────────────────────────────────────
-                    _TbTextField(
+                    AppTextFormField(
                       controller: _emailCtrl,
                       label: 'Email',
                       hint: 'tenant@example.com',
@@ -102,12 +108,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
                       enabled: !isLoading,
-                      validator: _validateEmail,
+                      validator: FormValidators.email,
                     ),
                     const SizedBox(height: 14),
 
                     // ── Mật khẩu ──────────────────────────────────────────
-                    _TbTextField(
+                    AppTextFormField(
                       controller: _passwordCtrl,
                       label: 'Mật khẩu',
                       hint: '••••••••',
@@ -116,7 +122,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       textInputAction: TextInputAction.done,
                       enabled: !isLoading,
                       onFieldSubmitted: (_) => _submit(),
-                      validator: _validatePassword,
+                      validator: FormValidators.password,
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
@@ -174,34 +180,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
 
-    await ref.read(authProvider.notifier).login(
-          email:    _emailCtrl.text.trim(),
-          password: _passwordCtrl.text,
-        );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Validators
-  // ---------------------------------------------------------------------------
-
-  String? _validateUrl(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Nhập URL server';
-    final uri = Uri.tryParse(value.trim());
-    if (uri == null || !uri.hasScheme) return 'URL không hợp lệ (cần https://)';
-    return null;
-  }
-
-  String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Nhập email';
-    final emailRegex = RegExp(r'^[\w.-]+@[\w.-]+\.\w+$');
-    if (!emailRegex.hasMatch(value.trim())) return 'Email không đúng định dạng';
-    return null;
-  }
-
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) return 'Nhập mật khẩu';
-    if (value.length < 6) return 'Mật khẩu ít nhất 6 ký tự';
-    return null;
+    await ref
+        .read(authProvider.notifier)
+        .login(email: _emailCtrl.text.trim(), password: _passwordCtrl.text);
   }
 }
 
@@ -230,116 +211,18 @@ class _LogoSection extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           'IoT Monitor',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 4),
         Text(
           'ThingsBoard',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Widget con — Error banner
-// ---------------------------------------------------------------------------
-
-class _ErrorBanner extends StatelessWidget {
-  final String message;
-  const _ErrorBanner({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 18,
-            color: Theme.of(context).colorScheme.onErrorContainer,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                fontSize: 13,
-                color: Theme.of(context).colorScheme.onErrorContainer,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Widget con — Text field chuẩn hoá cho màn login
-// ---------------------------------------------------------------------------
-
-class _TbTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final IconData prefixIcon;
-  final bool obscureText;
-  final bool enabled;
-  final TextInputType keyboardType;
-  final TextInputAction textInputAction;
-  final String? Function(String?)? validator;
-  final void Function(String)? onFieldSubmitted;
-  final Widget? suffixIcon;
-
-  const _TbTextField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    required this.prefixIcon,
-    this.obscureText = false,
-    this.enabled = true,
-    this.keyboardType = TextInputType.text,
-    this.textInputAction = TextInputAction.next,
-    this.validator,
-    this.onFieldSubmitted,
-    this.suffixIcon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      enabled: enabled,
-      keyboardType: keyboardType,
-      textInputAction: textInputAction,
-      onFieldSubmitted: onFieldSubmitted,
-      validator: validator,
-      style: const TextStyle(fontSize: 14),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(prefixIcon, size: 20),
-        suffixIcon: suffixIcon,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 14,
-        ),
-      ),
     );
   }
 }

@@ -10,9 +10,7 @@ import 'tb_auth_service.dart';
 // ---------------------------------------------------------------------------
 
 final secureStorageProvider = Provider<FlutterSecureStorage>(
-  (_) => const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  ),
+  (_) => const FlutterSecureStorage(),
 );
 
 final tbAuthServiceProvider = Provider<TbAuthService>((ref) {
@@ -28,8 +26,9 @@ final tbAuthServiceProvider = Provider<TbAuthService>((ref) {
 //   - state tự xử lý loading/error/data mà không cần set thủ công
 //   - UI dùng .when(loading, error, data) mà không cần if-else
 
-final authProvider =
-    AsyncNotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authProvider = AsyncNotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
 
 class AuthNotifier extends AsyncNotifier<AuthState> {
   // ---------------------------------------------------------------------------
@@ -43,18 +42,15 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   // ---------------------------------------------------------------------------
   // login
   // ---------------------------------------------------------------------------
-  Future<void> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> login({required String email, required String password}) async {
     // Bật loading — LoginScreen tự hiện CircularProgressIndicator
     state = const AsyncLoading();
 
     // AsyncValue.guard bắt exception và chuyển thành AsyncError tự động
     state = await AsyncValue.guard(() async {
       final authService = ref.read(tbAuthServiceProvider);
-      final storage     = ref.read(secureStorageProvider);
-      final dioClient   = ref.read(dioClientProvider);
+      final storage = ref.read(secureStorageProvider);
+      final dioClient = ref.read(dioClientProvider);
 
       // 1. Gọi ThingsBoard
       final response = await authService.login(
@@ -64,18 +60,21 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
 
       // 2. Lưu token an toàn
       await Future.wait([
-        storage.write(key: AppConstants.keyJwtToken,     value: response.token),
-        storage.write(key: AppConstants.keyRefreshToken, value: response.refreshToken),
-        storage.write(key: AppConstants.keyUserId,       value: response.userId),
+        storage.write(key: AppConstants.keyJwtToken, value: response.token),
+        storage.write(
+          key: AppConstants.keyRefreshToken,
+          value: response.refreshToken,
+        ),
+        storage.write(key: AppConstants.keyUserId, value: response.userId),
       ]);
 
       // 3. Gắn token vào Dio cho mọi request tiếp theo
       dioClient.setToken(response.token);
 
       return AuthAuthenticated(
-        token:        response.token,
+        token: response.token,
         refreshToken: response.refreshToken,
-        userId:       response.userId,
+        userId: response.userId,
       );
     });
   }
@@ -84,7 +83,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   // logout
   // ---------------------------------------------------------------------------
   Future<void> logout() async {
-    final storage   = ref.read(secureStorageProvider);
+    final storage = ref.read(secureStorageProvider);
     final dioClient = ref.read(dioClientProvider);
 
     await storage.deleteAll();
@@ -99,9 +98,9 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   Future<AuthState> _tryRestoreSession() async {
     final storage = ref.read(secureStorageProvider);
 
-    final token        = await storage.read(key: AppConstants.keyJwtToken);
+    final token = await storage.read(key: AppConstants.keyJwtToken);
     final refreshToken = await storage.read(key: AppConstants.keyRefreshToken);
-    final userId       = await storage.read(key: AppConstants.keyUserId);
+    final userId = await storage.read(key: AppConstants.keyUserId);
 
     // Chưa từng đăng nhập
     if (token == null || refreshToken == null) {
@@ -111,7 +110,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     // Có token → thử refresh để kiểm tra còn hợp lệ không
     try {
       final authService = ref.read(tbAuthServiceProvider);
-      final dioClient   = ref.read(dioClientProvider);
+      final dioClient = ref.read(dioClientProvider);
 
       final newAuth = await authService.refreshToken(refreshToken);
 
@@ -120,9 +119,9 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       dioClient.setToken(newAuth.token);
 
       return AuthAuthenticated(
-        token:        newAuth.token,
+        token: newAuth.token,
         refreshToken: refreshToken,
-        userId:       userId ?? newAuth.userId,
+        userId: userId ?? newAuth.userId,
       );
     } catch (_) {
       // Token hết hạn hoặc không hợp lệ → xóa và yêu cầu đăng nhập lại
@@ -149,4 +148,3 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
 
   bool get isAuthenticated => _currentValue is AuthAuthenticated;
 }
-
